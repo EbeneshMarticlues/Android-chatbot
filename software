@@ -1,0 +1,62 @@
+# Import the necessary libraries
+from flask import Flask, request, jsonify
+import dialogflow
+import requests
+import json
+
+# Create an instance of Flask
+app = Flask(__name__)
+
+# Configure the Dialogflow client
+dialogflow_session_client = dialogflow.SessionsClient()
+PROJECT_ID = "your_project_id"
+
+# Define the API endpoint
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    req = request.get_json(silent=True, force=True)
+
+    # Get the intent and parameters from Dialogflow
+    intent = req.get('queryResult').get('intent').get('displayName')
+    parameters = req.get('queryResult').get('parameters')
+
+    # Call the appropriate function based on the intent
+    if intent == 'weather':
+        return weather(parameters)
+    elif intent == 'news':
+        return news(parameters)
+    else:
+        return {'fulfillmentText': 'I don\'t understand'}
+
+# Define the weather function
+def weather(parameters):
+    city = parameters.get('geo-city')
+    url = "http://api.openweathermap.org/data/2.5/weather?q={}&appid=your_api_key".format(city)
+    response = requests.get(url)
+    data = response.json()
+
+    weather = data['weather'][0]['description']
+    temp = data['main']['temp']
+    humidity = data['main']['humidity']
+
+    fulfillmentText = "The weather in {} is {}, with a temperature of {} and a humidity of {}%".format(city, weather, temp, humidity)
+    return {'fulfillmentText': fulfillmentText}
+
+# Define the news function
+def news(parameters):
+    topic = parameters.get('topic')
+    url = "https://newsapi.org/v2/everything?q={}&apiKey=your_api_key".format(topic)
+    response = requests.get(url)
+    data = response.json()
+
+    articles = data['articles']
+    news = []
+    for article in articles:
+        news.append(article['title'])
+
+    fulfillmentText = "Here are the latest news articles on {}: {}".format(topic, news)
+    return {'fulfillmentText': fulfillmentText}
+
+# Run the app
+if __name__ == '__main__':
+    app.run(debug=True)
